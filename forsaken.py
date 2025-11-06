@@ -38,8 +38,8 @@ PRESS_FONT = pygame.font.SysFont("Arial", 28, bold=True)
 # Three full-width floors (ground + 2 upper solid floors) - PROPERLY 3x higher gaps
 platforms = [
     pygame.Rect(0, HEIGHT-50, 3000, 50),   # Floor 1: ground (y=650)
-    pygame.Rect(0, 350, 3000, 60),         # Floor 2: middle (y=350) - 300px gap from ground
-    pygame.Rect(0, 50, 3000, 60),          # Floor 3: top (y=50) - 300px gap from middle
+    pygame.Rect(0, 250, 3000, 60),         # Floor 2: middle (y=250) - 400px gap from ground
+    pygame.Rect(0, -150, 3000, 60),        # Floor 3: top (y=-150) - 400px gap from middle
 ]
 # clouds (for parallax) -> convert to stars for night
 stars = [(random.randint(0, 3000), random.randint(20, 180), random.randint(1,3)) for _ in range(120)]
@@ -208,6 +208,10 @@ class Player:
         self.tripwire_end = 0.0
         self.tripwire_location = None
         self.movement_type = 0  # For 007n7 clones: 0=aimless, 1=pathfinding, 2=cursor
+        # NPC AI state tracking
+        self.ai_decision_until = 0.0  # When to make next AI decision
+        self.ai_move_direction = 0  # -1 left, 0 idle, 1 right
+        self.ai_last_jump_time = 0.0  # Track last jump to prevent spam
 
     def rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.w, self.h)
@@ -492,14 +496,14 @@ SURVIVOR_TYPES = {
     "Taph": {"color": (200,100,0), "speed": 5, "hp": 100, "price": "Free", "abilities": ["tripwire", "subspace_tripmine"]}
 }
 
-# Random spawn points for all survivors - CORRECTED for equal 300px gaps
+# Random spawn points for all survivors - CORRECTED for equal 400px gaps
 SURVIVOR_SPAWNS = [
     # Floor 1 (ground) spawns
     (120, HEIGHT-110), (600, HEIGHT-110), (1200, HEIGHT-110), (1800, HEIGHT-110), (2400, HEIGHT-110),
-    # Floor 2 (middle) spawns - CORRECTED for y=350 floor
-    (300, 290), (800, 290), (1400, 290), (2000, 290), (2600, 290),
+    # Floor 2 (middle) spawns - CORRECTED for y=250 floor
+    (300, 190), (800, 190), (1400, 190), (2000, 190), (2600, 190),
     # Floor 3 (top) spawns
-    (400, -10), (1000, -10), (1600, -10), (2200, -10)
+    (400, -210), (1000, -210), (1600, -210), (2200, -210)
 ]
 
 # Create MULTIPLE SURVIVORS with different types!
@@ -970,31 +974,31 @@ confetti = []  # list of particles: {x,y,vx,vy,color,life}
 # Projectiles for 1x1x1x1
 projectiles = []  # each: {x,y,vx,vy,ttl,kind}
 # Portals between floors (pairs). Each is a dict: rect and target (x,y)
-# All portals now aligned vertically - CORRECTED for equal 300px gaps between all floors
+# All portals now aligned vertically - CORRECTED for equal 400px gaps between all floors
 portals = [
-    # Floor 1 to Floor 2 portals (Floor1=650, Floor2=350, gap=300px)
-    {"rect": pygame.Rect(40, HEIGHT-110, 40, 60),  "to": (2920, 350)},  # Floor1 left -> Floor2 right
-    {"rect": pygame.Rect(2920, HEIGHT-110, 40, 60), "to": (40, 350)},   # Floor1 right -> Floor2 left
-    {"rect": pygame.Rect(1480, HEIGHT-110, 40, 60), "to": (1480, 350)}, # Floor1 center -> Floor2 center
+    # Floor 1 to Floor 2 portals (Floor1=650, Floor2=250, gap=400px)
+    {"rect": pygame.Rect(40, HEIGHT-110, 40, 60),  "to": (2920, 250)},  # Floor1 left -> Floor2 right
+    {"rect": pygame.Rect(2920, HEIGHT-110, 40, 60), "to": (40, 250)},   # Floor1 right -> Floor2 left
+    {"rect": pygame.Rect(1480, HEIGHT-110, 40, 60), "to": (1480, 250)}, # Floor1 center -> Floor2 center
 
-    # Floor 2 to Floor 3 portals (Floor2=350, Floor3=50, gap=300px) - NOW PROPER GAP
-    {"rect": pygame.Rect(40, 290, 40, 60),          "to": (2920, 50)},  # Floor2 left -> Floor3 right
-    {"rect": pygame.Rect(2920, 290, 40, 60),        "to": (40, 50)},    # Floor2 right -> Floor3 left
-    {"rect": pygame.Rect(1480, 290, 40, 60),        "to": (1480, 50)},  # Floor2 center -> Floor3 center
+    # Floor 2 to Floor 3 portals (Floor2=250, Floor3=-150, gap=400px) - NOW PROPER GAP
+    {"rect": pygame.Rect(40, 190, 40, 60),          "to": (2920, -150)},  # Floor2 left -> Floor3 right
+    {"rect": pygame.Rect(2920, 190, 40, 60),        "to": (40, -150)},    # Floor2 right -> Floor3 left
+    {"rect": pygame.Rect(1480, 190, 40, 60),        "to": (1480, -150)},  # Floor2 center -> Floor3 center
 
     # Floor 3 to Floor 1 portals (quick descent)
-    {"rect": pygame.Rect(40, -10, 40, 60),          "to": (40, HEIGHT-50)},   # Floor3 left -> Floor1 left
-    {"rect": pygame.Rect(2920, -10, 40, 60),        "to": (2920, HEIGHT-50)}, # Floor3 right -> Floor1 right
-    {"rect": pygame.Rect(1480, -10, 40, 60),        "to": (1480, HEIGHT-50)}, # Floor3 center -> Floor1 center
+    {"rect": pygame.Rect(40, -210, 40, 60),          "to": (40, HEIGHT-50)},   # Floor3 left -> Floor1 left
+    {"rect": pygame.Rect(2920, -210, 40, 60),        "to": (2920, HEIGHT-50)}, # Floor3 right -> Floor1 right
+    {"rect": pygame.Rect(1480, -210, 40, 60),        "to": (1480, HEIGHT-50)}, # Floor3 center -> Floor1 center
 ]
-# Cute houses placed on floors: (x,y,w,h) - CORRECTED for equal 300px gaps
+# Cute houses placed on floors: (x,y,w,h) - CORRECTED for equal 400px gaps
 houses = [
     # Floor 1 (ground) - houses sit on y=650 floor
     (500, HEIGHT-120, 120, 70), (1300, HEIGHT-120, 120, 70), (2200, HEIGHT-120, 120, 70),
-    # Floor 2 (middle) - houses sit on y=350 floor - CORRECTED
-    (800, 280, 120, 70), (1900, 280, 120, 70),
-    # Floor 3 (top) - houses sit on y=50 floor
-    (600, -20, 120, 70), (1700, -20, 120, 70)
+    # Floor 2 (middle) - houses sit on y=250 floor - CORRECTED
+    (800, 180, 120, 70), (1900, 180, 120, 70),
+    # Floor 3 (top) - houses sit on y=-150 floor
+    (600, -220, 120, 70), (1700, -220, 120, 70)
 ]
 # 1x1x1x1 arrow ping state
 arrow_hint_until = 0.0
@@ -1061,8 +1065,8 @@ def create_random_generators():
     # Define floor positions and their generator y positions - CORRECTED
     floor_data = [
         (HEIGHT-90, "Floor 1"),  # Floor 1: ground level generators
-        (310, "Floor 2"),        # Floor 2: middle level generators - CORRECTED for y=350 floor
-        (10, "Floor 3")          # Floor 3: top level generators
+        (210, "Floor 2"),        # Floor 2: middle level generators - CORRECTED for y=250 floor
+        (-190, "Floor 3")        # Floor 3: top level generators
     ]
 
     # Generate exactly 5 generators spread across all floors
@@ -1160,64 +1164,100 @@ while running:
     if main_character and main_character.hp > 0:
         main_character.move_input(keys, pygame.K_a, pygame.K_d, pygame.K_w, barriers)
 
-    # NPC AI behavior - make NPCs avoid the killer and move around
+    # NPC AI behavior - make NPCs avoid the killer and move around smoothly
+    MAP_WIDTH = 3000
     for npc in npcs:
-        if npc.hp > 0:
-            # Simple AI: move away from killer and towards main character
-            killer_distance = abs(npc.x - coolkid.x)
-            main_char_distance = abs(npc.x - main_character.x) if main_character else 0
+        if npc.hp > 0 and time.time() >= npc.stun_until:  # Only move if not stunned
+            # Initialize AI state if not set
+            if not hasattr(npc, 'ai_decision_until'):
+                npc.ai_decision_until = 0.0
+                npc.ai_move_direction = 0
+                npc.ai_last_jump_time = 0.0
             
-            # Store original position for collision checking
-            old_x = npc.x
-            moved = False
+            now_time = time.time()
             
-            # If killer is too close, run away
-            if killer_distance < 200:
-                if coolkid.x < npc.x:
-                    # Killer is to the left, move right
-                    npc.x += npc.speed
-                    npc.facing_dir = 1
-                    moved = True
+            # Make new decision every 0.5-1.5 seconds (smooth, not jittery)
+            if now_time >= npc.ai_decision_until:
+                killer_distance = abs(npc.x - coolkid.x)
+                main_char_distance = abs(npc.x - main_character.x) if main_character else 9999
+                
+                # Priority 1: Run away from killer if too close
+                if killer_distance < 200:
+                    if coolkid.x < npc.x:
+                        npc.ai_move_direction = 1  # Move right
+                        npc.facing_dir = 1
+                    else:
+                        npc.ai_move_direction = -1  # Move left
+                        npc.facing_dir = -1
+                    # Commit to this direction for 0.4-0.8 seconds
+                    npc.ai_decision_until = now_time + random.uniform(0.4, 0.8)
+                # Priority 2: Follow main character if far away
+                elif main_char_distance > 300 and main_character:
+                    if main_character.x < npc.x:
+                        npc.ai_move_direction = -1  # Move left
+                        npc.facing_dir = -1
+                    else:
+                        npc.ai_move_direction = 1  # Move right
+                        npc.facing_dir = 1
+                    # Commit to this direction for 0.5-1.0 seconds
+                    npc.ai_decision_until = now_time + random.uniform(0.5, 1.0)
+                # Priority 3: Wander slowly
                 else:
-                    # Killer is to the right, move left
-                    npc.x -= npc.speed
-                    npc.facing_dir = -1
-                    moved = True
-            # If main character is far away, try to follow
-            elif main_char_distance > 300 and main_character:
-                if main_character.x < npc.x:
-                    # Main character is to the left, move left
-                    npc.x -= npc.speed * 0.7
-                    npc.facing_dir = -1
-                    moved = True
-                else:
-                    # Main character is to the right, move right
-                    npc.x += npc.speed * 0.7
-                    npc.facing_dir = 1
-                    moved = True
-            # Random movement if not too close to killer
-            elif random.random() < 0.02:  # 2% chance each frame
-                if random.random() < 0.5:
-                    npc.x += npc.speed * 0.5
-                    npc.facing_dir = 1
-                    moved = True
-                else:
-                    npc.x -= npc.speed * 0.5
-                    npc.facing_dir = -1
-                    moved = True
+                    # Random direction change
+                    if random.random() < 0.3:  # 30% chance to change direction
+                        npc.ai_move_direction = random.choice([-1, 0, 1])
+                    # Commit to this direction for 1.0-2.0 seconds (longer for wandering)
+                    npc.ai_decision_until = now_time + random.uniform(1.0, 2.0)
             
-            # Check for collision with barriers and revert if needed
-            if moved:
-                npc_rect = pygame.Rect(npc.x, npc.y, 30, 30)
+            # Apply movement based on current AI decision
+            if npc.ai_move_direction != 0:
+                old_x = npc.x
+                move_speed = npc.speed
+                # Use full speed when fleeing, slower when following/wandering
+                if abs(npc.x - coolkid.x) < 200:
+                    move_speed = npc.speed  # Full speed when fleeing
+                else:
+                    move_speed = npc.speed * 0.6  # Slower when wandering/following
+                
+                move_delta = npc.ai_move_direction * move_speed
+                
+                # Check map boundaries
+                new_x = old_x + move_delta
+                if new_x < 0:
+                    new_x = 0
+                    npc.ai_move_direction = 0  # Stop if hit boundary
+                    npc.ai_decision_until = now_time + 0.3  # Quick decision to change direction
+                elif new_x + npc.w > MAP_WIDTH:
+                    new_x = MAP_WIDTH - npc.w
+                    npc.ai_move_direction = 0  # Stop if hit boundary
+                    npc.ai_decision_until = now_time + 0.3  # Quick decision to change direction
+                
+                # Check for collision with barriers
+                can_move = True
                 for barrier in barriers:
-                    if npc_rect.colliderect(barrier):
-                        npc.x = old_x  # Revert movement
+                    if move_delta < 0 and (new_x) <= (barrier.x + barrier.w) and (new_x + npc.w) > barrier.x and (npc.y + npc.h) > barrier.y and npc.y < (barrier.y + barrier.h):
+                        can_move = False
                         break
+                    elif move_delta > 0 and (new_x + npc.w) >= barrier.x and new_x < (barrier.x + barrier.w) and (npc.y + npc.h) > barrier.y and npc.y < (barrier.y + barrier.h):
+                        can_move = False
+                        break
+                
+                if can_move:
+                    npc.x = new_x
+                    npc.last_move_time = time.time()
+                else:
+                    # Hit a barrier, change direction quickly
+                    npc.ai_move_direction = 0
+                    npc.ai_decision_until = now_time + 0.2
             
-            # Random jumping
-            if npc.on_ground and random.random() < 0.01:  # 1% chance each frame
+            # Very rare jumping - only when truly needed (avoid obstacles or jump over gaps)
+            # Jump much less frequently (only every 5-10 seconds, and only if on ground for a while)
+            if (npc.on_ground and 
+                now_time - npc.ai_last_jump_time > 5.0 and  # At least 5 seconds between jumps
+                random.random() < 0.001):  # Very low chance (0.1% per frame, ~0.06 per second)
                 npc.vel_y = -15
                 npc.on_ground = False
+                npc.ai_last_jump_time = now_time
 
     # CoolKid controls: arrows ; / is K_SLASH, comma is K_COMMA, m spawn clone
     coolkid.move_input(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, barriers)
@@ -1844,10 +1884,15 @@ while running:
     render_h = HEIGHT
 
     # Horizontal camera (same as before)
+    MAP_WIDTH = 3000
     camera_left_x = int(noob_center_x - render_w//2)
     camera_right_x = int(cool_center_x - render_w//2)
+    # Clamp horizontal camera to map bounds
+    max_camera_x = MAP_WIDTH - render_w
     if camera_left_x < 0: camera_left_x = 0
+    if camera_left_x > max_camera_x: camera_left_x = max_camera_x
     if camera_right_x < 0: camera_right_x = 0
+    if camera_right_x > max_camera_x: camera_right_x = max_camera_x
 
     # NEW: Vertical camera following
     camera_left_y = int(noob_center_y - render_h//2)
